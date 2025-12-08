@@ -22,6 +22,8 @@ function ChecklistAppContent() {
   const [importText, setImportText] = useState('')
   const [showImport, setShowImport] = useState(true)
   const [recentlyChecked, setRecentlyChecked] = useState<Set<string>>(new Set())
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newItemText, setNewItemText] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -134,6 +136,28 @@ function ChecklistAppContent() {
     ))
   }
 
+  const handleTodoTabClick = () => {
+    if (activeTab === 'todo') {
+      setShowAddModal(true)
+    } else {
+      setActiveTab('todo')
+    }
+  }
+
+  const handleAddItem = () => {
+    if (newItemText.trim()) {
+      const newItem: ChecklistItem = {
+        id: `item-${Date.now()}`,
+        text: newItemText.trim(),
+        completed: false,
+        deleted: false,
+      }
+      setItems([newItem, ...items])
+      setNewItemText('')
+      setShowAddModal(false)
+    }
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
 
@@ -157,9 +181,10 @@ function ChecklistAppContent() {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      padding: '0 1rem 1rem 1rem',
       maxWidth: '600px',
-      margin: '0 auto'
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
       {showImport ? (
         <div style={{
@@ -167,7 +192,7 @@ function ChecklistAppContent() {
           padding: '1.5rem',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          marginBottom: '1rem',
+          margin: '1rem',
           border: '1px solid #2a2a2a'
         }}>
           <h2 style={{ 
@@ -222,17 +247,16 @@ function ChecklistAppContent() {
           <div style={{
             display: 'flex',
             gap: '0.5rem',
-            marginBottom: '1rem',
             borderBottom: '2px solid #2a2a2a',
             position: 'sticky',
             top: 0,
             backgroundColor: '#0a0a0a',
             zIndex: 10,
-            paddingTop: '1rem',
-            paddingBottom: '0.5rem'
+            padding: '1rem 1rem 0.5rem 1rem',
+            marginBottom: '1rem'
           }}>
             <button
-              onClick={() => setActiveTab('todo')}
+              onClick={handleTodoTabClick}
               style={{
                 flex: 1,
                 padding: '0.75rem',
@@ -285,70 +309,187 @@ function ChecklistAppContent() {
           </div>
 
           {/* Items List */}
-          {currentItems.length === 0 ? (
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '2rem',
-              borderRadius: '8px',
-              textAlign: 'center',
-              color: '#4a4a4a',
-              border: '1px solid #2a2a2a'
-            }}>
-              {activeTab === 'todo' ? 'No todo items' : activeTab === 'done' ? 'No completed items' : 'No deleted items'}
-            </div>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={currentItems.map(item => item.id)}
-                strategy={verticalListSortingStrategy}
+          <div style={{ padding: '0 1rem 1rem 1rem', overflowY: 'auto' }}>
+            {currentItems.length === 0 ? (
+              <div style={{
+                backgroundColor: '#1a1a1a',
+                padding: '2rem',
+                borderRadius: '8px',
+                textAlign: 'center',
+                color: '#4a4a4a',
+                border: '1px solid #2a2a2a'
+              }}>
+                {activeTab === 'todo' ? 'No todo items' : activeTab === 'done' ? 'No completed items' : 'No deleted items'}
+              </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {currentItems.map((item) => (
-                    <SortableItem
-                      key={item.id}
-                      item={item}
-                      onToggle={handleToggle}
-                      onDelete={handleDelete}
-                      onRestore={handleRestore}
-                      activeTab={activeTab}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          )}
+                <SortableContext
+                  items={currentItems.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {currentItems.map((item) => (
+                      <SortableItem
+                        key={item.id}
+                        item={item}
+                        onToggle={handleToggle}
+                        onDelete={handleDelete}
+                        onRestore={handleRestore}
+                        activeTab={activeTab}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
 
-          {/* Clear all button */}
-          {items.length > 0 && (
-            <button
-              onClick={() => {
-                if (confirm('Clear all items?')) {
-                  setItems([])
-                  setShowImport(true)
-                  localStorage.removeItem('checklist-items')
+            {/* Clear all button */}
+            {items.length > 0 && (
+              <button
+                onClick={() => {
+                  if (confirm('Clear all items?')) {
+                    setItems([])
+                    setShowImport(true)
+                    localStorage.removeItem('checklist-items')
+                  }
+                }}
+                style={{
+                  marginTop: '1.5rem',
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: '#2a2a2a',
+                  color: '#ff6b6b',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '4px',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Add Item Modal */}
+      {showAddModal && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddModal(false)
+              setNewItemText('')
+            }
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#1a1a1a',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              border: '1px solid #2a2a2a',
+              width: '100%',
+              maxWidth: '400px'
+            }}
+          >
+            <h2 style={{
+              fontSize: '1.25rem',
+              marginBottom: '1rem',
+              fontWeight: '600',
+              color: '#CCCCCC'
+            }}>
+              Add New Item
+            </h2>
+            <input
+              type="text"
+              value={newItemText}
+              onChange={(e) => setNewItemText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddItem()
+                } else if (e.key === 'Escape') {
+                  setShowAddModal(false)
+                  setNewItemText('')
                 }
               }}
+              placeholder="Enter item text..."
+              autoFocus
               style={{
-                marginTop: '1.5rem',
                 width: '100%',
                 padding: '0.75rem',
-                backgroundColor: '#2a2a2a',
-                color: '#ff6b6b',
-                border: '1px solid #3a3a3a',
+                border: '1px solid #2a2a2a',
                 borderRadius: '4px',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                cursor: 'pointer'
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                backgroundColor: '#0f0f0f',
+                color: '#CCCCCC',
+                outline: 'none',
+                marginBottom: '1rem'
               }}
-            >
-              Clear All
-            </button>
-          )}
-        </>
+            />
+            <div style={{
+              display: 'flex',
+              gap: '0.5rem',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => {
+                  setShowAddModal(false)
+                  setNewItemText('')
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#2a2a2a',
+                  color: '#CCCCCC',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '4px',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddItem}
+                disabled={!newItemText.trim()}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#2a2a2a',
+                  color: '#CCCCCC',
+                  border: '1px solid #3a3a3a',
+                  borderRadius: '4px',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: newItemText.trim() ? 'pointer' : 'not-allowed',
+                  opacity: newItemText.trim() ? 1 : 0.5
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
