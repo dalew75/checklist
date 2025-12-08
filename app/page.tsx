@@ -18,9 +18,14 @@ export default function ChecklistApp() {
   const [activeTab, setActiveTab] = useState<TabType>('open')
   const [importText, setImportText] = useState('')
   const [showImport, setShowImport] = useState(true)
+  const [recentlyChecked, setRecentlyChecked] = useState<Set<string>>(new Set())
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -69,9 +74,24 @@ export default function ChecklistApp() {
   }
 
   const handleToggle = (id: string) => {
+    const item = items.find(i => i.id === id)
+    const willBeCompleted = !item?.completed
+    
     setItems(items.map(item => 
       item.id === id ? { ...item, completed: !item.completed } : item
     ))
+
+    // If checking an item in open tab, show it crossed out briefly
+    if (willBeCompleted && activeTab === 'open') {
+      setRecentlyChecked(prev => new Set(prev).add(id))
+      setTimeout(() => {
+        setRecentlyChecked(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 300)
+    }
   }
 
   const handleDelete = (id: string) => {
@@ -90,7 +110,9 @@ export default function ChecklistApp() {
     }
   }
 
-  const openItems = items.filter(item => !item.completed)
+  // Show items in their respective tabs
+  // In open tab, also show recently checked items so they appear crossed out
+  const openItems = items.filter(item => !item.completed || recentlyChecked.has(item.id))
   const doneItems = items.filter(item => item.completed)
 
   const currentItems = activeTab === 'open' ? openItems : doneItems
@@ -310,21 +332,37 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
         alignItems: 'center',
         gap: '0.75rem',
         cursor: activeTab === 'open' ? 'grab' : 'pointer',
-        touchAction: 'none'
+        touchAction: activeTab === 'open' ? 'none' : 'auto'
       }}
       {...(activeTab === 'open' ? { ...attributes, ...listeners } : {})}
     >
-      <input
-        type="checkbox"
-        checked={item.completed}
-        onChange={() => onToggle(item.id)}
-        style={{
-          width: '20px',
-          height: '20px',
-          cursor: 'pointer',
-          flexShrink: 0
+      <div
+        onClick={(e) => {
+          e.stopPropagation()
         }}
-      />
+        onMouseDown={(e) => {
+          e.stopPropagation()
+        }}
+        style={{ flexShrink: 0 }}
+      >
+        <input
+          type="checkbox"
+          checked={item.completed}
+          onChange={(e) => {
+            e.stopPropagation()
+            onToggle(item.id)
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+          }}
+          style={{
+            width: '20px',
+            height: '20px',
+            cursor: 'pointer',
+            pointerEvents: 'auto'
+          }}
+        />
+      </div>
       <span
         onClick={() => activeTab === 'done' && onToggle(item.id)}
         style={{
@@ -332,7 +370,8 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
           textDecoration: item.completed ? 'line-through' : 'none',
           color: item.completed ? '#999' : '#333',
           fontSize: '1rem',
-          wordBreak: 'break-word'
+          wordBreak: 'break-word',
+          transition: 'text-decoration 0.2s ease, color 0.2s ease'
         }}
       >
         {item.text}
