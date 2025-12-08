@@ -347,14 +347,12 @@ function ChecklistAppContent() {
               </DndContext>
             )}
 
-            {/* Clear all button */}
-            {items.length > 0 && (
+            {/* Clear all button - only show in Trash tab */}
+            {activeTab === 'trash' && trashItems.length > 0 && (
               <button
                 onClick={() => {
-                  if (confirm('Clear all items?')) {
-                    setItems([])
-                    setShowImport(true)
-                    localStorage.removeItem('checklist-items')
+                  if (confirm('Permanently delete all items in trash?')) {
+                    setItems(items.filter(item => !item.deleted))
                   }
                 }}
                 style={{
