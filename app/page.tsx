@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -14,7 +15,8 @@ interface ChecklistItem {
 
 type TabType = 'todo' | 'done' | 'trash'
 
-export default function ChecklistApp() {
+function ChecklistAppContent() {
+  const searchParams = useSearchParams()
   const [items, setItems] = useState<ChecklistItem[]>([])
   const [activeTab, setActiveTab] = useState<TabType>('todo')
   const [importText, setImportText] = useState('')
@@ -32,8 +34,27 @@ export default function ChecklistApp() {
     })
   )
 
+  // Check for ?new=true and clear localStorage if present
+  useEffect(() => {
+    const isNew = searchParams.get('new') === 'true'
+    if (isNew) {
+      localStorage.removeItem('checklist-items')
+      setItems([])
+      setShowImport(true)
+      // Remove the query parameter from URL without reload
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
+  }, [searchParams])
+
   // Load from localStorage on mount
   useEffect(() => {
+    // Skip loading if ?new=true was present (already cleared above)
+    if (searchParams.get('new') === 'true') {
+      return
+    }
+
     const saved = localStorage.getItem('checklist-items')
     if (saved) {
       try {
@@ -51,7 +72,7 @@ export default function ChecklistApp() {
         console.error('Failed to load from localStorage', e)
       }
     }
-  }, [])
+  }, [searchParams])
 
   // Save to localStorage whenever items change
   useEffect(() => {
@@ -330,6 +351,14 @@ export default function ChecklistApp() {
         </>
       )}
     </div>
+  )
+}
+
+export default function ChecklistApp() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', padding: '1rem', color: '#CCCCCC' }}>Loading...</div>}>
+      <ChecklistAppContent />
+    </Suspense>
   )
 }
 
