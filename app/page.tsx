@@ -120,19 +120,10 @@ export default function ChecklistApp() {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      padding: '1rem',
+      padding: '0 1rem 1rem 1rem',
       maxWidth: '600px',
       margin: '0 auto'
     }}>
-      <h1 style={{ 
-        fontSize: '1.75rem', 
-        fontWeight: 'bold', 
-        marginBottom: '1.5rem',
-        textAlign: 'center'
-      }}>
-        Checklist
-      </h1>
-
       {showImport ? (
         <div style={{
           backgroundColor: 'white',
