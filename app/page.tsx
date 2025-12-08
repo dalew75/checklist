@@ -9,13 +9,14 @@ interface ChecklistItem {
   id: string
   text: string
   completed: boolean
+  deleted: boolean
 }
 
-type TabType = 'open' | 'done'
+type TabType = 'todo' | 'done' | 'trash'
 
 export default function ChecklistApp() {
   const [items, setItems] = useState<ChecklistItem[]>([])
-  const [activeTab, setActiveTab] = useState<TabType>('open')
+  const [activeTab, setActiveTab] = useState<TabType>('todo')
   const [importText, setImportText] = useState('')
   const [showImport, setShowImport] = useState(true)
   const [recentlyChecked, setRecentlyChecked] = useState<Set<string>>(new Set())
@@ -38,7 +39,12 @@ export default function ChecklistApp() {
       try {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setItems(parsed)
+          // Migrate old items to include deleted property
+          const migrated = parsed.map(item => ({
+            ...item,
+            deleted: item.deleted !== undefined ? item.deleted : false
+          }))
+          setItems(migrated)
           setShowImport(false)
         }
       } catch (e) {
@@ -66,6 +72,7 @@ export default function ChecklistApp() {
       id: `item-${Date.now()}-${index}`,
       text: line,
       completed: false,
+      deleted: false,
     }))
 
     setItems(newItems)
@@ -81,8 +88,8 @@ export default function ChecklistApp() {
       item.id === id ? { ...item, completed: !item.completed } : item
     ))
 
-    // If checking an item in open tab, show it crossed out briefly
-    if (willBeCompleted && activeTab === 'open') {
+    // If checking an item in todo tab, show it crossed out briefly
+    if (willBeCompleted && activeTab === 'todo') {
       setRecentlyChecked(prev => new Set(prev).add(id))
       setTimeout(() => {
         setRecentlyChecked(prev => {
@@ -95,7 +102,15 @@ export default function ChecklistApp() {
   }
 
   const handleDelete = (id: string) => {
-    setItems(items.filter(item => item.id !== id))
+    setItems(items.map(item => 
+      item.id === id ? { ...item, deleted: true } : item
+    ))
+  }
+
+  const handleRestore = (id: string) => {
+    setItems(items.map(item => 
+      item.id === id ? { ...item, deleted: false } : item
+    ))
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -111,11 +126,12 @@ export default function ChecklistApp() {
   }
 
   // Show items in their respective tabs
-  // In open tab, also show recently checked items so they appear crossed out
-  const openItems = items.filter(item => !item.completed || recentlyChecked.has(item.id))
-  const doneItems = items.filter(item => item.completed)
+  // In todo tab, also show recently checked items so they appear crossed out
+  const todoItems = items.filter(item => !item.deleted && (!item.completed || recentlyChecked.has(item.id)))
+  const doneItems = items.filter(item => !item.deleted && item.completed)
+  const trashItems = items.filter(item => item.deleted)
 
-  const currentItems = activeTab === 'open' ? openItems : doneItems
+  const currentItems = activeTab === 'todo' ? todoItems : activeTab === 'done' ? doneItems : trashItems
 
   return (
     <div style={{ 
@@ -186,24 +202,30 @@ export default function ChecklistApp() {
             display: 'flex',
             gap: '0.5rem',
             marginBottom: '1rem',
-            borderBottom: '2px solid #2a2a2a'
+            borderBottom: '2px solid #2a2a2a',
+            position: 'sticky',
+            top: 0,
+            backgroundColor: '#0a0a0a',
+            zIndex: 10,
+            paddingTop: '1rem',
+            paddingBottom: '0.5rem'
           }}>
             <button
-              onClick={() => setActiveTab('open')}
+              onClick={() => setActiveTab('todo')}
               style={{
                 flex: 1,
                 padding: '0.75rem',
                 border: 'none',
                 backgroundColor: 'transparent',
                 fontSize: '1rem',
-                fontWeight: activeTab === 'open' ? '600' : '400',
-                color: activeTab === 'open' ? '#CCCCCC' : '#4a4a4a',
-                borderBottom: activeTab === 'open' ? '2px solid #CCCCCC' : '2px solid transparent',
+                fontWeight: activeTab === 'todo' ? '600' : '400',
+                color: activeTab === 'todo' ? '#CCCCCC' : '#4a4a4a',
+                borderBottom: activeTab === 'todo' ? '2px solid #CCCCCC' : '2px solid transparent',
                 cursor: 'pointer',
                 marginBottom: '-2px'
               }}
             >
-              Open ({openItems.length})
+              Todo ({todoItems.length})
             </button>
             <button
               onClick={() => setActiveTab('done')}
@@ -222,6 +244,23 @@ export default function ChecklistApp() {
             >
               Done ({doneItems.length})
             </button>
+            <button
+              onClick={() => setActiveTab('trash')}
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                border: 'none',
+                backgroundColor: 'transparent',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'trash' ? '600' : '400',
+                color: activeTab === 'trash' ? '#CCCCCC' : '#4a4a4a',
+                borderBottom: activeTab === 'trash' ? '2px solid #CCCCCC' : '2px solid transparent',
+                cursor: 'pointer',
+                marginBottom: '-2px'
+              }}
+            >
+              Trash ({trashItems.length})
+            </button>
           </div>
 
           {/* Items List */}
@@ -234,7 +273,7 @@ export default function ChecklistApp() {
               color: '#4a4a4a',
               border: '1px solid #2a2a2a'
             }}>
-              {activeTab === 'open' ? 'No open items' : 'No completed items'}
+              {activeTab === 'todo' ? 'No todo items' : activeTab === 'done' ? 'No completed items' : 'No deleted items'}
             </div>
           ) : (
             <DndContext
@@ -253,6 +292,7 @@ export default function ChecklistApp() {
                       item={item}
                       onToggle={handleToggle}
                       onDelete={handleDelete}
+                      onRestore={handleRestore}
                       activeTab={activeTab}
                     />
                   ))}
@@ -297,10 +337,11 @@ interface SortableItemProps {
   item: ChecklistItem
   onToggle: (id: string) => void
   onDelete: (id: string) => void
+  onRestore: (id: string) => void
   activeTab: TabType
 }
 
-function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps) {
+function SortableItem({ item, onToggle, onDelete, onRestore, activeTab }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -331,36 +372,44 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
         gap: '0.75rem'
       }}
     >
-      <div
-        onClick={(e) => {
-          e.stopPropagation()
-        }}
-        onMouseDown={(e) => {
-          e.stopPropagation()
-        }}
-        style={{ flexShrink: 0 }}
-      >
-        <input
-          type="checkbox"
-          checked={item.completed}
-          onChange={(e) => {
-            e.stopPropagation()
-            onToggle(item.id)
-          }}
+      {activeTab !== 'trash' && (
+        <div
           onClick={(e) => {
             e.stopPropagation()
           }}
-          style={{
-            width: '20px',
-            height: '20px',
-            cursor: 'pointer',
-            pointerEvents: 'auto',
-            accentColor: '#60a5fa'
+          onMouseDown={(e) => {
+            e.stopPropagation()
           }}
-        />
-      </div>
+          style={{ flexShrink: 0 }}
+        >
+          <input
+            type="checkbox"
+            checked={item.completed}
+            onChange={(e) => {
+              e.stopPropagation()
+              onToggle(item.id)
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+            }}
+            style={{
+              width: '20px',
+              height: '20px',
+              cursor: 'pointer',
+              pointerEvents: 'auto',
+              accentColor: '#60a5fa'
+            }}
+          />
+        </div>
+      )}
       <span
-        onClick={() => activeTab === 'done' && onToggle(item.id)}
+        onClick={() => {
+          if (activeTab === 'done') {
+            onToggle(item.id)
+          } else if (activeTab === 'trash') {
+            onRestore(item.id)
+          }
+        }}
         style={{
           flex: 1,
           textDecoration: item.completed ? 'line-through' : 'none',
@@ -368,12 +417,12 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
           fontSize: '1rem',
           wordBreak: 'break-word',
           transition: 'text-decoration 0.2s ease, color 0.2s ease',
-          cursor: activeTab === 'done' ? 'pointer' : 'default'
+          cursor: (activeTab === 'done' || activeTab === 'trash') ? 'pointer' : 'default'
         }}
       >
         {item.text}
       </span>
-      {activeTab === 'open' && (
+      {activeTab === 'todo' && (
         <div
           {...attributes}
           {...listeners}
@@ -408,40 +457,77 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
           </svg>
         </div>
       )}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onDelete(item.id)
-        }}
-        style={{
-          backgroundColor: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '0.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          color: '#ff6b6b'
-        }}
-        aria-label="Delete item"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {activeTab === 'trash' ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRestore(item.id)
+          }}
+          style={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            color: '#60a5fa'
+          }}
+          aria-label="Restore item"
         >
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          <line x1="10" y1="11" x2="10" y2="17"></line>
-          <line x1="14" y1="11" x2="14" y2="17"></line>
-        </svg>
-      </button>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+            <path d="M21 3v5h-5"></path>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+            <path d="M3 21v-5h5"></path>
+          </svg>
+        </button>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete(item.id)
+          }}
+          style={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            color: '#ff6b6b'
+          }}
+          aria-label="Delete item"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
