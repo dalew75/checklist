@@ -16,7 +16,12 @@ body {
 }
 
 body {
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: #0a0a0a;
+  color: #CCCCCC;
+}
+
+textarea::placeholder {
+  color: #4a4a4a;
+  opacity: 1;
 }
 

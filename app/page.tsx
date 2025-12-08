@@ -126,16 +126,18 @@ export default function ChecklistApp() {
     }}>
       {showImport ? (
         <div style={{
-          backgroundColor: 'white',
+          backgroundColor: '#1a1a1a',
           padding: '1.5rem',
           borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '1rem'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          marginBottom: '1rem',
+          border: '1px solid #2a2a2a'
         }}>
           <h2 style={{ 
             fontSize: '1.25rem', 
             marginBottom: '1rem',
-            fontWeight: '600'
+            fontWeight: '600',
+            color: '#CCCCCC'
           }}>
             Import Your List
           </h2>
@@ -147,12 +149,15 @@ export default function ChecklistApp() {
               width: '100%',
               minHeight: '200px',
               padding: '0.75rem',
-              border: '1px solid #ddd',
+              border: '1px solid #2a2a2a',
               borderRadius: '4px',
               fontSize: '1rem',
               fontFamily: 'inherit',
               resize: 'vertical',
-              marginBottom: '1rem'
+              marginBottom: '1rem',
+              backgroundColor: '#0f0f0f',
+              color: '#CCCCCC',
+              outline: 'none'
             }}
           />
           <button
@@ -161,9 +166,9 @@ export default function ChecklistApp() {
             style={{
               width: '100%',
               padding: '0.75rem',
-              backgroundColor: '#0070f3',
-              color: 'white',
-              border: 'none',
+              backgroundColor: '#2a2a2a',
+              color: '#CCCCCC',
+              border: '1px solid #3a3a3a',
               borderRadius: '4px',
               fontSize: '1rem',
               fontWeight: '600',
@@ -181,7 +186,7 @@ export default function ChecklistApp() {
             display: 'flex',
             gap: '0.5rem',
             marginBottom: '1rem',
-            borderBottom: '2px solid #e0e0e0'
+            borderBottom: '2px solid #2a2a2a'
           }}>
             <button
               onClick={() => setActiveTab('open')}
@@ -192,8 +197,8 @@ export default function ChecklistApp() {
                 backgroundColor: 'transparent',
                 fontSize: '1rem',
                 fontWeight: activeTab === 'open' ? '600' : '400',
-                color: activeTab === 'open' ? '#0070f3' : '#666',
-                borderBottom: activeTab === 'open' ? '2px solid #0070f3' : '2px solid transparent',
+                color: activeTab === 'open' ? '#CCCCCC' : '#4a4a4a',
+                borderBottom: activeTab === 'open' ? '2px solid #CCCCCC' : '2px solid transparent',
                 cursor: 'pointer',
                 marginBottom: '-2px'
               }}
@@ -209,8 +214,8 @@ export default function ChecklistApp() {
                 backgroundColor: 'transparent',
                 fontSize: '1rem',
                 fontWeight: activeTab === 'done' ? '600' : '400',
-                color: activeTab === 'done' ? '#0070f3' : '#666',
-                borderBottom: activeTab === 'done' ? '2px solid #0070f3' : '2px solid transparent',
+                color: activeTab === 'done' ? '#CCCCCC' : '#4a4a4a',
+                borderBottom: activeTab === 'done' ? '2px solid #CCCCCC' : '2px solid transparent',
                 cursor: 'pointer',
                 marginBottom: '-2px'
               }}
@@ -222,11 +227,12 @@ export default function ChecklistApp() {
           {/* Items List */}
           {currentItems.length === 0 ? (
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: '#1a1a1a',
               padding: '2rem',
               borderRadius: '8px',
               textAlign: 'center',
-              color: '#666'
+              color: '#4a4a4a',
+              border: '1px solid #2a2a2a'
             }}>
               {activeTab === 'open' ? 'No open items' : 'No completed items'}
             </div>
@@ -269,9 +275,9 @@ export default function ChecklistApp() {
                 marginTop: '1.5rem',
                 width: '100%',
                 padding: '0.75rem',
-                backgroundColor: '#ff4444',
-                color: 'white',
-                border: 'none',
+                backgroundColor: '#2a2a2a',
+                color: '#ff6b6b',
+                border: '1px solid #3a3a3a',
                 borderRadius: '4px',
                 fontSize: '0.9rem',
                 fontWeight: '600',
@@ -315,10 +321,11 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
       ref={setNodeRef}
       style={{
         ...style,
-        backgroundColor: 'white',
+        backgroundColor: '#1a1a1a',
         padding: '1rem',
         borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        border: '1px solid #2a2a2a',
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
@@ -350,7 +357,8 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
             width: '20px',
             height: '20px',
             cursor: 'pointer',
-            pointerEvents: 'auto'
+            pointerEvents: 'auto',
+            accentColor: '#60a5fa'
           }}
         />
       </div>
@@ -359,7 +367,7 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
         style={{
           flex: 1,
           textDecoration: item.completed ? 'line-through' : 'none',
-          color: item.completed ? '#999' : '#333',
+          color: item.completed ? '#4a4a4a' : '#CCCCCC',
           fontSize: '1rem',
           wordBreak: 'break-word',
           transition: 'text-decoration 0.2s ease, color 0.2s ease'
@@ -381,7 +389,7 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          color: '#ff4444'
+          color: '#ff6b6b'
         }}
         aria-label="Delete item"
       >
