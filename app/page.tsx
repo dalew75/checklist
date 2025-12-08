@@ -328,11 +328,8 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
         border: '1px solid #2a2a2a',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.75rem',
-        cursor: activeTab === 'open' ? 'grab' : 'pointer',
-        touchAction: activeTab === 'open' ? 'none' : 'auto'
+        gap: '0.75rem'
       }}
-      {...(activeTab === 'open' ? { ...attributes, ...listeners } : {})}
     >
       <div
         onClick={(e) => {
@@ -370,11 +367,47 @@ function SortableItem({ item, onToggle, onDelete, activeTab }: SortableItemProps
           color: item.completed ? '#4a4a4a' : '#CCCCCC',
           fontSize: '1rem',
           wordBreak: 'break-word',
-          transition: 'text-decoration 0.2s ease, color 0.2s ease'
+          transition: 'text-decoration 0.2s ease, color 0.2s ease',
+          cursor: activeTab === 'done' ? 'pointer' : 'default'
         }}
       >
         {item.text}
       </span>
+      {activeTab === 'open' && (
+        <div
+          {...attributes}
+          {...listeners}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0.25rem',
+            cursor: 'grab',
+            touchAction: 'none',
+            flexShrink: 0,
+            color: '#4a4a4a'
+          }}
+          aria-label="Drag to reorder"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="9" cy="12" r="1"></circle>
+            <circle cx="9" cy="5" r="1"></circle>
+            <circle cx="9" cy="19" r="1"></circle>
+            <circle cx="15" cy="12" r="1"></circle>
+            <circle cx="15" cy="5" r="1"></circle>
+            <circle cx="15" cy="19" r="1"></circle>
+          </svg>
+        </div>
+      )}
       <button
         onClick={(e) => {
           e.stopPropagation()
