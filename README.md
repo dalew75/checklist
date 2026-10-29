@@ -6,10 +6,12 @@ A simple, mobile-friendly checklist app built with Next.js.
 
 - ✅ Import lists by pasting line-by-line text
 - ✅ Check/uncheck items with checkboxes
-- ✅ Two tabs: Open and Done
-- ✅ Drag and drop to reorder items (in Open tab)
-- ✅ Click completed items to move them back to Open
-- ✅ Delete items with trash icon
+- ✅ Three tabs: Todo, Done and Trash
+- ✅ Add single items by clicking the Todo tab while it's active
+- ✅ Drag and drop to reorder items (in the Todo tab)
+- ✅ Click completed items to move them back to Todo
+- ✅ Deleted items go to Trash and can be restored
+- ✅ Phone link at the top of the page (the server's LAN IP) for opening the app on a phone
 - ✅ Automatic localStorage persistence
 
 ## Getting Started
@@ -24,16 +26,18 @@ npm install
 npm run dev
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser
+3. Open [http://localhost:3000](http://localhost:3000) in your browser. To use it on your phone, open the "Phone link" shown at the top of the page from a phone on the same network.
 
 ## Usage
 
 1. **Import a list**: Paste your list items (one per line) in the textarea and click "Import List"
-2. **Check items**: Click the checkbox to mark items as complete (moves to Done tab)
-3. **Reorder items**: Drag items in the Open tab to reorder them
-4. **Restore items**: Click any item in the Done tab to move it back to Open
-5. **Delete items**: Click the trash icon on any item to delete it
-6. **Clear all**: Use the "Clear All" button to remove all items and start over
+2. **Add an item**: Click the Todo tab while it's already selected to open the "Add New Item" dialog
+3. **Check items**: Click the checkbox to mark items as complete (moves to Done tab)
+4. **Reorder items**: Drag items by the handle in the Todo tab to reorder them
+5. **Un-complete items**: Click any item in the Done tab to move it back to Todo
+6. **Delete items**: Click the trash icon to move an item to the Trash tab. In Trash, click an item or its restore icon to bring it back
+7. **Empty the trash**: The "Clear All" button in the Trash tab permanently deletes the items in Trash
+8. **Start over**: Open the app with `?new=true` (e.g. `http://localhost:3000/?new=true`) to clear the saved list and import a new one
 
 Your checklist is automatically saved to localStorage and will persist when you return to the page.
 
