@@ -1,26 +1,32 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-
-interface ChecklistItem {
-  id: string
-  text: string
-  completed: boolean
-  deleted: boolean
-}
+import { applyOp, ChecklistItem, ListOp } from '@/lib/listOps'
 
 type TabType = 'todo' | 'done' | 'trash'
 
+const LIST_ID_KEY = 'checklist-list-id'
+const LEGACY_ITEMS_KEY = 'checklist-items'
+const isListId = (id: string | null | undefined): id is string => !!id && /^[a-z0-9]{8,40}$/.test(id)
+
+// crypto.randomUUID needs a secure context, which a plain-http LAN address isn't
+function newListId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(bytes, b => (b % 36).toString(36)).join('')
+}
+
 function ChecklistAppContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const [listId, setListId] = useState<string | null>(null)
   const [items, setItems] = useState<ChecklistItem[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('todo')
   const [importText, setImportText] = useState('')
-  const [showImport, setShowImport] = useState(true)
   const [recentlyChecked, setRecentlyChecked] = useState<Set<string>>(new Set())
   const [showAddModal, setShowAddModal] = useState(false)
   const [newItemText, setNewItemText] = useState('')
@@ -50,59 +56,86 @@ function ChecklistAppContent() {
       .catch(() => {})
   }, [])
 
-  // Check for ?new=true and clear localStorage if present
+  // Pick the list: ?list= in the URL, else the last one used, else a new one.
+  // ?new=true always starts a new list (the old one stays on the server).
   useEffect(() => {
-    const isNew = searchParams.get('new') === 'true'
+    const fromUrl = searchParams?.get('list')
+    const isNew = searchParams?.get('new') === 'true'
+
+    let id: string | null = null
     if (isNew) {
-      localStorage.removeItem('checklist-items')
-      setItems([])
-      setShowImport(true)
-      // Remove the query parameter from URL without reload
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', window.location.pathname)
-      }
+      localStorage.removeItem(LEGACY_ITEMS_KEY)
+    } else if (isListId(fromUrl)) {
+      id = fromUrl
+    } else {
+      const last = localStorage.getItem(LIST_ID_KEY)
+      if (isListId(last)) id = last
     }
-  }, [searchParams])
+    if (!id) id = newListId()
 
-  // Load from localStorage on mount
+    localStorage.setItem(LIST_ID_KEY, id)
+    if (fromUrl !== id || isNew) {
+      router.replace(`/?list=${id}`)
+    }
+    setListId(id)
+  }, [searchParams, router])
+
+  // Live updates: the server sends the whole list on connect and after every change
   useEffect(() => {
-    // Skip loading if ?new=true was present (already cleared above)
-    if (searchParams.get('new') === 'true') {
-      return
+    if (!listId) return
+    setLoaded(false)
+    const source = new EventSource(`/api/lists/${listId}/events`)
+    source.onmessage = (event) => {
+      setItems(JSON.parse(event.data))
+      setLoaded(true)
     }
+    return () => source.close()
+  }, [listId])
 
-    const saved = localStorage.getItem('checklist-items')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Migrate old items to include deleted property
-          const migrated = parsed.map(item => ({
-            ...item,
-            deleted: item.deleted !== undefined ? item.deleted : false
-          }))
-          setItems(migrated)
-          setShowImport(false)
-        }
-      } catch (e) {
-        console.error('Failed to load from localStorage', e)
-      }
-    }
-  }, [searchParams])
+  // Apply a change locally right away, then send it to the server,
+  // which saves it and broadcasts the result to every open browser
+  const dispatch = (op: ListOp) => {
+    setItems(prev => applyOp(prev, op))
+    fetch(`/api/lists/${listId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op }),
+    }).catch(e => console.error('Failed to save change', e))
+  }
 
-  // Save to localStorage whenever items change
+  // One-time migration of a list saved by the old localStorage-only version
   useEffect(() => {
-    if (items.length > 0 || localStorage.getItem('checklist-items')) {
-      localStorage.setItem('checklist-items', JSON.stringify(items))
+    if (!loaded || items.length > 0) return
+    const saved = localStorage.getItem(LEGACY_ITEMS_KEY)
+    if (!saved) return
+    localStorage.removeItem(LEGACY_ITEMS_KEY)
+    try {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        dispatch({
+          type: 'import',
+          items: parsed.map(item => ({
+            id: String(item.id),
+            text: String(item.text),
+            completed: !!item.completed,
+            deleted: !!item.deleted,
+          })),
+        })
+      }
+    } catch (e) {
+      console.error('Failed to migrate saved list', e)
     }
-  }, [items])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded])
+
+  const showImport = loaded && items.length === 0
 
   const handleImport = () => {
     const lines = importText
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0)
-    
+
     if (lines.length === 0) return
 
     const newItems: ChecklistItem[] = lines.map((line, index) => ({
@@ -112,18 +145,15 @@ function ChecklistAppContent() {
       deleted: false,
     }))
 
-    setItems(newItems)
+    dispatch({ type: 'import', items: newItems })
     setImportText('')
-    setShowImport(false)
   }
 
   const handleToggle = (id: string) => {
     const item = items.find(i => i.id === id)
     const willBeCompleted = !item?.completed
-    
-    setItems(items.map(item => 
-      item.id === id ? { ...item, completed: !item.completed } : item
-    ))
+
+    dispatch({ type: 'toggle', id })
 
     // If checking an item in todo tab, show it crossed out briefly
     if (willBeCompleted && activeTab === 'todo') {
@@ -139,15 +169,11 @@ function ChecklistAppContent() {
   }
 
   const handleDelete = (id: string) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, deleted: true } : item
-    ))
+    dispatch({ type: 'delete', id })
   }
 
   const handleRestore = (id: string) => {
-    setItems(items.map(item => 
-      item.id === id ? { ...item, deleted: false } : item
-    ))
+    dispatch({ type: 'restore', id })
   }
 
   const handleTodoTabClick = () => {
@@ -160,13 +186,15 @@ function ChecklistAppContent() {
 
   const handleAddItem = () => {
     if (newItemText.trim()) {
-      const newItem: ChecklistItem = {
-        id: `item-${Date.now()}`,
-        text: newItemText.trim(),
-        completed: false,
-        deleted: false,
-      }
-      setItems([newItem, ...items])
+      dispatch({
+        type: 'add',
+        item: {
+          id: `item-${Date.now()}`,
+          text: newItemText.trim(),
+          completed: false,
+          deleted: false,
+        },
+      })
       setNewItemText('')
       setShowAddModal(false)
     }
@@ -176,11 +204,7 @@ function ChecklistAppContent() {
     const { active, over } = event
 
     if (over && active.id !== over.id) {
-      setItems((items) => {
-        const oldIndex = items.findIndex(item => item.id === active.id)
-        const newIndex = items.findIndex(item => item.id === over.id)
-        return arrayMove(items, oldIndex, newIndex)
-      })
+      dispatch({ type: 'move', activeId: String(active.id), overId: String(over.id) })
     }
   }
 
@@ -192,6 +216,9 @@ function ChecklistAppContent() {
 
   const currentItems = activeTab === 'todo' ? todoItems : activeTab === 'done' ? doneItems : trashItems
 
+  // Includes the list id, so the phone opens this same list
+  const phoneUrl = lanUrl && listId ? `${lanUrl}/?list=${listId}` : null
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -201,21 +228,24 @@ function ChecklistAppContent() {
       flexDirection: 'column'
     }}>
       {/* LAN link for opening on phone */}
-      {lanUrl && (
+      {phoneUrl && (
         <div style={{
           padding: '0.5rem 1rem 0 1rem',
           textAlign: 'center',
           fontSize: '0.85rem',
-          color: '#4a4a4a'
+          color: '#4a4a4a',
+          wordBreak: 'break-all'
         }}>
           Phone link:{' '}
-          <a href={lanUrl} style={{ color: '#60a5fa' }}>
-            {lanUrl}
+          <a href={phoneUrl} style={{ color: '#60a5fa' }}>
+            {phoneUrl}
           </a>
         </div>
       )}
 
-      {showImport ? (
+      {!loaded ? (
+        <div style={{ padding: '1rem', color: '#4a4a4a' }}>Loading...</div>
+      ) : showImport ? (
         <div style={{
           backgroundColor: '#1a1a1a',
           padding: '1.5rem',
@@ -381,7 +411,7 @@ function ChecklistAppContent() {
               <button
                 onClick={() => {
                   if (confirm('Permanently delete all items in trash?')) {
-                    setItems(items.filter(item => !item.deleted))
+                    dispatch({ type: 'clearTrash' })
                   }
                 }}
                 style={{
