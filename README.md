@@ -11,8 +11,9 @@ A simple, mobile-friendly checklist app built with Next.js.
 - ✅ Drag and drop to reorder items (in the Todo tab)
 - ✅ Click completed items to move them back to Todo
 - ✅ Deleted items go to Trash and can be restored
-- ✅ Phone link at the top of the page (the server's LAN IP) for opening the app on a phone
-- ✅ Automatic localStorage persistence
+- ✅ Shared lists that sync live: open the same list on your laptop and phone, and changes on either show up on the other
+- ✅ Phone link at the top of the page (the server's LAN IP plus the list ID) for opening the current list on a phone
+- ✅ Lists are saved on the server (as JSON files in `data/`)
 
 ## Getting Started
 
@@ -26,7 +27,7 @@ npm install
 npm run dev
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser. To use it on your phone, open the "Phone link" shown at the top of the page from a phone on the same network.
+3. Open [http://localhost:3000](http://localhost:3000) in your browser. The URL changes to `/?list=<id>`, which is the link to this list. To use it on your phone, open the "Phone link" shown at the top of the page from a phone on the same network. Both devices then edit the same list live.
 
 ## Usage
 
@@ -37,9 +38,13 @@ npm run dev
 5. **Un-complete items**: Click any item in the Done tab to move it back to Todo
 6. **Delete items**: Click the trash icon to move an item to the Trash tab. In Trash, click an item or its restore icon to bring it back
 7. **Empty the trash**: The "Clear All" button in the Trash tab permanently deletes the items in Trash
-8. **Start over**: Open the app with `?new=true` (e.g. `http://localhost:3000/?new=true`) to clear the saved list and import a new one
+8. **Start over**: Open the app with `?new=true` (e.g. `http://localhost:3000/?new=true`) to start a new, empty list. The old list is still there at its old link.
 
-Your checklist is automatically saved to localStorage and will persist when you return to the page.
+## Sharing and sync
+
+Each list lives on the server at `data/lists/<id>.json` and has its own link, `/?list=<id>`. Anyone who opens that link sees the list and can edit it. Changes are pushed live to every open copy using Server-Sent Events. Opening the app without `?list=` takes you back to the last list you used in that browser.
+
+There is no login. On a public server, a list is private only as long as its link stays private.
 
 ## Production Deployment
 
@@ -178,7 +183,12 @@ Create a `.env.production` file if needed:
 ```env
 NODE_ENV=production
 PORT=3000
+DATA_DIR=/var/lib/checklist
 ```
+
+`DATA_DIR` is where lists are stored. It defaults to `data/` in the directory the server starts from. With the standalone build or Docker, set it to a fixed path, and in Docker mount a volume there, so lists survive redeploys.
+
+Live sync uses Server-Sent Events. The app sends `X-Accel-Buffering: no` so that Nginx doesn't buffer the stream. With a different proxy, turn off response buffering for `/api/lists/`.
 
 ### Firewall Configuration
 
