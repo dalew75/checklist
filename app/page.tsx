@@ -24,6 +24,7 @@ function ChecklistAppContent() {
   const [recentlyChecked, setRecentlyChecked] = useState<Set<string>>(new Set())
   const [showAddModal, setShowAddModal] = useState(false)
   const [newItemText, setNewItemText] = useState('')
+  const [lanUrl, setLanUrl] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -35,6 +36,19 @@ function ChecklistAppContent() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   )
+
+  // Fetch the server's LAN IP so the page can be opened on a phone
+  useEffect(() => {
+    fetch('/api/lan-ip')
+      .then(res => res.json())
+      .then(({ ips }: { ips: string[] }) => {
+        if (ips.length > 0) {
+          const port = window.location.port ? `:${window.location.port}` : ''
+          setLanUrl(`http://${ips[0]}${port}`)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Check for ?new=true and clear localStorage if present
   useEffect(() => {
@@ -186,6 +200,21 @@ function ChecklistAppContent() {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      {/* LAN link for opening on phone */}
+      {lanUrl && (
+        <div style={{
+          padding: '0.5rem 1rem 0 1rem',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          color: '#4a4a4a'
+        }}>
+          Phone link:{' '}
+          <a href={lanUrl} style={{ color: '#60a5fa' }}>
+            {lanUrl}
+          </a>
+        </div>
+      )}
+
       {showImport ? (
         <div style={{
           backgroundColor: '#1a1a1a',
