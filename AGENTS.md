@@ -66,3 +66,8 @@ This is a Next.js 14 App Router app. The UI is one client component in `app/page
 ## Known issues
 
 - The README's Dockerfile copies `/app/public`, but the repo has no `public/` directory.
+
+## Git: commit and push (always do this)
+
+When a change is done (and `npx tsc --noEmit` passes), commit it and push to `origin` without asking (user decision,
+2026-11-17).
