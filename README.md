@@ -1,8 +1,7 @@
 # Checklist App
 
 > **Being replaced by the tasks service** (`../tasks`) and the portal's Tasks tab, which has the same
-> paste-a-list import (To-do → Import a list). Move the open items over with
-> `cd ../tasks && npm run import:checklist -- ../checklist/data/lists/*.json`.
+> paste-a-list import (To-do → Import a list). The old list was not carried over; this app is due to be retired.
 
 A simple, mobile-friendly checklist app built with Next.js.
 
